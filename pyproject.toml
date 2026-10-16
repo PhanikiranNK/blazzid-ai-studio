@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blazzid-ai-studio"
+version = "0.1.0"
+description = "AI-powered gaming video intelligence platform"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "PhanikiranNK", email = "nkphanikiran@gmail.com" }
+]
+dependencies = [
+    "pydantic>=2.6.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "hypothesis>=6.98.0",
+    "pytest-benchmark>=4.0.0",
+    "ruff>=0.3.0",
+    "mypy>=1.9.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+exclude = [
+    ".venv",
+    "docs",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+    "UP007", # Use X | Y for type annotations (breaks Pydantic v2 runtime eval on Python 3.9)
+    "UP045", # Use X | None for type annotations (breaks Pydantic v2 runtime eval on Python 3.9)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["blazzid_core", "blazzid_algorithms"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+explicit_package_bases = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+show_error_codes = true
+mypy_path = "packages/core/src:packages/algorithms/src"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests", "benchmarks"]
+pythonpath = ["packages/core/src", "packages/algorithms/src"]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+]
+addopts = "-ra --strict-markers"
