@@ -128,3 +128,73 @@ def generate_synthetic_audio(
         raise RuntimeError(f"FFmpeg failed to generate audio fixture: {result.stderr}")
 
     return target
+
+
+def generate_portrait_video(
+    duration_seconds: float = 2.0,
+    width: int = 360,
+    height: int = 640,
+    fps: int = 30,
+    has_audio: bool = True,
+    output_path: Optional[Path] = None,
+) -> Path:
+    """Generates a synthetic portrait (vertical) video fixture."""
+    return generate_synthetic_video(
+        duration_seconds=duration_seconds,
+        width=width,
+        height=height,
+        fps=fps,
+        has_audio=has_audio,
+        output_path=output_path,
+    )
+
+
+def generate_vfr_video(
+    duration_seconds: float = 3.0,
+    width: int = 320,
+    height: int = 240,
+    output_path: Optional[Path] = None,
+) -> Path:
+    """Generates a synthetic video with intentionally variable frame timestamps."""
+    if not is_ffmpeg_available():
+        raise RuntimeError("FFmpeg is not installed or not available on PATH.")
+
+    target = output_path or Path(tempfile.mktemp(suffix=".mp4"))
+
+    # Select filter drops non-matching frames, creating real variable frame deltas
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        f"testsrc=duration={duration_seconds}:size={width}x{height}:rate=30",
+        "-vf",
+        "select='not(mod(n\\,3))+not(mod(n\\,5))'",
+        "-fps_mode",
+        "vfr",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        str(target),
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg failed to generate VFR fixture: {result.stderr}")
+
+    return target
+
+
+def generate_corrupt_media(output_path: Optional[Path] = None) -> Path:
+    """Generates a corrupted, non-decodable media fixture larger than min file size."""
+    target = output_path or Path(tempfile.mktemp(suffix=".mp4"))
+    # Write invalid MP4 header followed by random garbage (2048 bytes)
+    header = b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00"
+    garbage = b"corrupted_media_payload_garbage_data_" * 60
+    target.write_bytes(header + garbage)
+    return target

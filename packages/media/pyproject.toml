@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blazzid-media"
+version = "0.1.0"
+description = "Local media ingestion, probing, preprocessing, and extraction for BLAZZID AI Studio"
+requires-python = ">=3.9"
+dependencies = [
+    "blazzid-core",
+    "numpy>=1.24.0",
+    "opencv-python-headless>=4.8.0",
+    "pydantic>=2.6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

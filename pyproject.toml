@@ -14,6 +14,7 @@ authors = [
 dependencies = [
     "pydantic>=2.6.0",
     "numpy>=1.24.0",
+    "opencv-python-headless>=4.8.0",
 ]
 
 [project.optional-dependencies]
@@ -51,7 +52,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["blazzid_core", "blazzid_algorithms"]
+known-first-party = ["blazzid_core", "blazzid_algorithms", "blazzid_media"]
 
 [tool.mypy]
 python_version = "3.9"
@@ -68,12 +69,12 @@ warn_unused_ignores = true
 warn_return_any = true
 no_implicit_reexport = true
 show_error_codes = true
-mypy_path = "packages/core/src:packages/algorithms/src"
+mypy_path = "packages/core/src:packages/algorithms/src:packages/media/src"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests", "benchmarks"]
-pythonpath = ["packages/core/src", "packages/algorithms/src"]
+pythonpath = ["packages/core/src", "packages/algorithms/src", "packages/media/src"]
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",

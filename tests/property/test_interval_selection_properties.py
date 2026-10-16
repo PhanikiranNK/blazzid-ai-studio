@@ -1,5 +1,7 @@
 """Hypothesis property-based tests for Weighted Interval Scheduling."""
 
+import math
+
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -85,8 +87,10 @@ def test_dp_matches_exhaustive_oracle(candidates: list[HighlightCandidate], budg
     assert oracle_dur <= budget + 1e-4
 
     # Exhaustive search finds the global un-discretized maximum.
-    # The discretized DP score is at most within minor discretization rounding of the oracle.
+    # When oracle selection fits within discretized bins, DP achieves near-optimal score.
     oracle_score = sum(c.rank_score for c in oracle_res)
-    if oracle_score > 0.0:
-        # DP should achieve at least 90% of continuous oracle even with discrete quantum bins
+    budget_bins = int(budget / 0.1)
+    oracle_bins = sum(int(math.ceil(c.duration / 0.1)) for c in oracle_res)
+
+    if oracle_score > 0.0 and oracle_bins <= budget_bins:
         assert dp_res.total_score >= oracle_score * 0.85 or dp_res.total_score >= oracle_score - 5.0

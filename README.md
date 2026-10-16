@@ -19,8 +19,9 @@
 ## 2. Project Status & Stage Completion
 
 - [x] **Stage 0: Principal Architecture & Engineering Design** (Complete — see [`docs/`](./docs/))
-- [x] **Stage 1: Repository Foundation, Contracts & Core Algorithms** (Complete)
-- [ ] **Stage 2: Media Ingestion, Preprocessing & Fast Video Analysis** (Pending explicit approval)
+- [x] **Stage 1: Repository Foundation, Contracts & Core Algorithms** (Complete — see [`docs/algorithm-implementation.md`](./docs/algorithm-implementation.md))
+- [x] **Stage 2: Media Ingestion, Preprocessing & Fast Video Analysis** (Complete — see [`docs/media-pipeline.md`](./docs/media-pipeline.md))
+- [ ] **Stage 3: Brawl Stars Gameplay Signal Extraction** (Pending explicit approval)
 
 ---
 
@@ -34,8 +35,8 @@ source .venv/bin/activate
 
 # 2. Install editable packages and development dependencies
 pip install --upgrade pip
-pip install -e packages/core -e packages/algorithms
-pip install -r pyproject.toml --extra dev || pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff>=0.3.0" "mypy>=1.9.0"
+pip install -e packages/core -e packages/algorithms -e packages/media
+pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff>=0.3.0" "mypy>=1.9.0"
 ```
 
 ### Quality Gate Commands (From Repository Root)
@@ -44,10 +45,10 @@ pip install -r pyproject.toml --extra dev || pip install "pytest>=8.0.0" "hypoth
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
 
-# Strict Type Checking (mypy --strict)
-.venv/bin/mypy packages/core/src packages/algorithms/src tests benchmarks
+# Strict Type Checking (mypy --strict across all packages and test suites)
+.venv/bin/mypy --strict packages/core/src packages/algorithms/src packages/media/src tests benchmarks
 
-# Unit & Property-Based Test Suites
+# Complete Test Suite (103 tests: unit, property, synthetic media, and pipeline integration)
 .venv/bin/pytest -v tests
 
 # Repeatable Performance Benchmarks
@@ -67,38 +68,55 @@ pip install -r pyproject.toml --extra dev || pip install "pytest>=8.0.0" "hypoth
 │   │   └── src/blazzid_core/
 │   │       ├── contracts/                 # TimeInterval, Confidence, Observations, Events, Selection
 │   │       └── errors.py                  # DomainValidationError, IntervalError, BudgetConstraintError
-│   └── algorithms/                        # blazzid-algorithms: pure mathematical primitives
+│   ├── algorithms/                        # blazzid-algorithms: pure mathematical primitives
+│   │   ├── pyproject.toml
+│   │   └── src/blazzid_algorithms/
+│   │       ├── top_k.py                   # Bounded min-heap streaming selector (O(M log K))
+│   │       ├── interval_selection.py      # 2D DP Weighted Interval Scheduling & Exhaustive Oracle
+│   │       ├── rolling_statistics.py      # Numerically stabilized rolling stats & z-scores
+│   │       └── perceptual_hash.py         # 64-bit Hamming distance & visual similarity
+│   └── media/                             # blazzid-media: Stage 2 media ingestion & preprocessing
 │       ├── pyproject.toml
-│       └── src/blazzid_algorithms/
-│           ├── top_k.py                   # Bounded min-heap streaming selector (O(M log K))
-│           ├── interval_selection.py      # 2D DP Weighted Interval Scheduling & Exhaustive Oracle
-│           ├── rolling_statistics.py      # Numerically stabilized rolling stats & z-scores
-│           └── perceptual_hash.py         # 64-bit Hamming distance & visual similarity
+│       └── src/blazzid_media/
+│           ├── validation.py              # File bounds, safe paths & traversal prevention
+│           ├── probe.py                   # ffprobe stream inspection & CFR/VFR empirical pacing
+│           ├── preprocessing.py           # 720p 30fps H.264 proxy & 16kHz mono audio extraction
+│           ├── frames.py                  # Timestamp-aware sparse frame extraction via OpenCV
+│           ├── waveform.py                # Bounded-buffer waveform peak & RMS generation
+│           ├── pipeline.py                # Composable local MediaPipeline orchestrator
+│           ├── models.py                  # Pydantic v2 metadata & pipeline result schemas
+│           └── errors.py                  # Structured domain media exceptions
 ├── tests/
-│   ├── unit/                              # Isolated component & boundary tests (53 tests)
+│   ├── unit/                              # Isolated component & boundary tests (87 tests)
 │   ├── property/                          # Hypothesis mathematical invariant tests (11 tests)
+│   ├── integration/                       # End-to-end MediaPipeline integration tests (5 tests)
 │   └── fixtures/                          # Synthetic FFmpeg video & audio test fixtures
-├── benchmarks/                            # pytest-benchmark performance test suite
-└── docs/                                  # Complete Stage 0 & Stage 1 architecture records
+├── benchmarks/                            # pytest-benchmark performance test suite (10 benchmarks)
+└── docs/                                  # Complete Stage 0, Stage 1 & Stage 2 architecture records
 ```
 
 ---
 
-## 5. Stage 1 Deliverables & Acceptance Verification
+## 5. Stage Deliverables & Acceptance Verification
 
-| Stage 1 Requirement | Implementation File | Verification Test Suite | Benchmark Performance |
+| Capability / Requirement | Implementation Module | Verification Test Suite | Benchmark Performance |
 | :--- | :--- | :--- | :--- |
 | **Top-$K$ Selection** | [`top_k.py`](./packages/algorithms/src/blazzid_algorithms/top_k.py) | [`test_top_k.py`](./tests/unit/test_top_k.py)<br>[`test_top_k_properties.py`](./tests/property/test_top_k_properties.py) | **$1,627,000\text{ items/s}$** ($6.14\text{ms}$ per 10k items) |
 | **Weighted Interval Scheduling** | [`interval_selection.py`](./packages/algorithms/src/blazzid_algorithms/interval_selection.py) | [`test_interval_selection.py`](./tests/unit/test_interval_selection.py)<br>[`test_interval_selection_properties.py`](./tests/property/test_interval_selection_properties.py) | **$10.78\text{ms}$** ($100$ clips, $360$ capacity bins) |
 | **Rolling Statistics** | [`rolling_statistics.py`](./packages/algorithms/src/blazzid_algorithms/rolling_statistics.py) | [`test_rolling_statistics.py`](./tests/unit/test_rolling_statistics.py)<br>[`test_rolling_statistics_properties.py`](./tests/property/test_rolling_statistics_properties.py) | **$893,000\text{ samples/s}$** ($55.93\text{ms}$ per 50k samples) |
 | **64-bit Hash Distance** | [`perceptual_hash.py`](./packages/algorithms/src/blazzid_algorithms/perceptual_hash.py) | [`test_perceptual_hash.py`](./tests/unit/test_perceptual_hash.py)<br>[`test_perceptual_hash_properties.py`](./tests/property/test_perceptual_hash_properties.py) | **$1,515,000\text{ comparisons/s}$** ($6.59\text{ms}$ per 10k pairs) |
-| **Domain Contracts** | [`contracts/`](./packages/core/src/blazzid_core/contracts/) | [`test_contracts.py`](./tests/unit/test_contracts.py) | Fully validated Pydantic v2 models |
-| **Synthetic Media** | [`synthetic_media.py`](./tests/fixtures/synthetic_media.py) | [`test_synthetic_media.py`](./tests/fixtures/test_synthetic_media.py) | Deterministic FFmpeg fixtures |
+| **Media Probing & VFR Pacing** | [`probe.py`](./packages/media/src/blazzid_media/probe.py) | [`test_probe.py`](./tests/unit/test_probe.py) | **$62.00\text{ms}$** per file inspection |
+| **Analysis Proxy Transcode** | [`preprocessing.py`](./packages/media/src/blazzid_media/preprocessing.py) | [`test_preprocessing.py`](./tests/unit/test_preprocessing.py) | **$352.68\text{ms}$** (3s 720p H.264) |
+| **16kHz Mono WAV Extraction** | [`preprocessing.py`](./packages/media/src/blazzid_media/preprocessing.py) | [`test_preprocessing.py`](./tests/unit/test_preprocessing.py) | **$32.11\text{ms}$** per stream extraction |
+| **Sparse Keyframe Extraction** | [`frames.py`](./packages/media/src/blazzid_media/frames.py) | [`test_frames.py`](./tests/unit/test_frames.py) | **$52.70\text{ms}$** (3 keyframes via OpenCV) |
+| **Waveform Peak Generation** | [`waveform.py`](./packages/media/src/blazzid_media/waveform.py) | [`test_waveform.py`](./tests/unit/test_waveform.py) | **$1.28\text{ms}$** ($776\text{ ops/s}$ on 10s audio) |
+| **End-to-End MediaPipeline** | [`pipeline.py`](./packages/media/src/blazzid_media/pipeline.py) | [`test_media_pipeline.py`](./tests/integration/test_media_pipeline.py) | **$515.94\text{ms}$** (~6x faster than realtime) |
 
 ---
 
 ## 6. Architecture & Engineering Documentation Index
 
+- [**docs/media-pipeline.md**](./docs/media-pipeline.md): Stage 2 media ingestion, preprocessing, and fast video analysis.
 - [**docs/development-setup.md**](./docs/development-setup.md): Complete local setup and quality gate guide.
 - [**docs/algorithm-implementation.md**](./docs/algorithm-implementation.md): Algorithmic proofs, invariants, and benchmark record.
 - [**docs/requirements.md**](./docs/requirements.md): System goals, NFRs, and domain boundaries.
