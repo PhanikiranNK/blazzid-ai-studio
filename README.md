@@ -21,7 +21,8 @@
 - [x] **Stage 0: Principal Architecture & Engineering Design** (Complete — see [`docs/`](./docs/))
 - [x] **Stage 1: Repository Foundation, Contracts & Core Algorithms** (Complete — see [`docs/algorithm-implementation.md`](./docs/algorithm-implementation.md))
 - [x] **Stage 2: Media Ingestion, Preprocessing & Fast Video Analysis** (Complete — see [`docs/media-pipeline.md`](./docs/media-pipeline.md))
-- [ ] **Stage 3: Brawl Stars Gameplay Signal Extraction** (Pending explicit approval)
+- [x] **Stage 3: Gameplay Event Detection & Candidate Generation** (Complete — see [`docs/gameplay-event-detection.md`](./docs/gameplay-event-detection.md))
+- [ ] **Stage 4: Highlight Ranking, Scoring & Montage Assembly** (Pending explicit approval)
 
 ---
 
@@ -35,7 +36,7 @@ source .venv/bin/activate
 
 # 2. Install editable packages and development dependencies
 pip install --upgrade pip
-pip install -e packages/core -e packages/algorithms -e packages/media
+pip install -e packages/core -e packages/algorithms -e packages/media -e packages/detection
 pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff>=0.3.0" "mypy>=1.9.0"
 ```
 
@@ -45,13 +46,13 @@ pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
 
-# Strict Type Checking (mypy --strict across all packages and test suites)
-.venv/bin/mypy --strict packages/core/src packages/algorithms/src packages/media/src tests benchmarks
+# Strict Type Checking (mypy --strict across all packages, test suites, and benchmarks)
+.venv/bin/mypy --strict packages/core/src packages/algorithms/src packages/media/src packages/detection/src tests benchmarks
 
-# Complete Test Suite (103 tests: unit, property, synthetic media, and pipeline integration)
+# Complete Test Suite (135 tests: unit, property, synthetic media, and detector integration)
 .venv/bin/pytest -v tests
 
-# Repeatable Performance Benchmarks
+# Repeatable Performance Benchmarks (14 benchmarks)
 .venv/bin/pytest -v benchmarks
 ```
 
@@ -75,24 +76,35 @@ pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff
 │   │       ├── interval_selection.py      # 2D DP Weighted Interval Scheduling & Exhaustive Oracle
 │   │       ├── rolling_statistics.py      # Numerically stabilized rolling stats & z-scores
 │   │       └── perceptual_hash.py         # 64-bit Hamming distance & visual similarity
-│   └── media/                             # blazzid-media: Stage 2 media ingestion & preprocessing
+│   ├── media/                             # blazzid-media: Stage 2 media ingestion & preprocessing
+│   │   ├── pyproject.toml
+│   │   └── src/blazzid_media/
+│   │       ├── validation.py              # File bounds, safe paths & traversal prevention
+│   │       ├── probe.py                   # ffprobe stream inspection & CFR/VFR empirical pacing
+│   │       ├── preprocessing.py           # 720p 30fps H.264 proxy & 16kHz mono audio extraction
+│   │       ├── frames.py                  # Timestamp-aware sparse frame extraction via OpenCV
+│   │       ├── waveform.py                # Bounded-buffer waveform peak & RMS generation
+│   │       ├── pipeline.py                # Composable local MediaPipeline orchestrator
+│   │       ├── models.py                  # Pydantic v2 metadata & pipeline result schemas
+│   │       └── errors.py                  # Structured domain media exceptions
+│   └── detection/                         # blazzid-detection: Stage 3 gameplay event detection
 │       ├── pyproject.toml
-│       └── src/blazzid_media/
-│           ├── validation.py              # File bounds, safe paths & traversal prevention
-│           ├── probe.py                   # ffprobe stream inspection & CFR/VFR empirical pacing
-│           ├── preprocessing.py           # 720p 30fps H.264 proxy & 16kHz mono audio extraction
-│           ├── frames.py                  # Timestamp-aware sparse frame extraction via OpenCV
-│           ├── waveform.py                # Bounded-buffer waveform peak & RMS generation
-│           ├── pipeline.py                # Composable local MediaPipeline orchestrator
-│           ├── models.py                  # Pydantic v2 metadata & pipeline result schemas
-│           └── errors.py                  # Structured domain media exceptions
+│       └── src/blazzid_detection/
+│           ├── models.py                  # FrameFeatureRecord, RawEventTrigger, DetectionResult
+│           ├── config.py                  # Validated DetectionConfig thresholds and window sizes
+│           ├── features.py                # Normalized visual feature extraction (luminance, hist, Sobel)
+│           ├── activity.py                # Activity metrics, Welford rolling z-score bursts & combat
+│           ├── transitions.py             # Abrupt scene cuts & visual boundary detection
+│           ├── grouping.py                # Hypothesis clustering, narrative padding & NMS deduplication
+│           ├── scoring.py                 # Multi-detector evidence calibration & Observation provenance
+│           └── detector.py                # Public GameplayEventDetector orchestrator
 ├── tests/
-│   ├── unit/                              # Isolated component & boundary tests (87 tests)
-│   ├── property/                          # Hypothesis mathematical invariant tests (11 tests)
-│   ├── integration/                       # End-to-end MediaPipeline integration tests (5 tests)
-│   └── fixtures/                          # Synthetic FFmpeg video & audio test fixtures
-├── benchmarks/                            # pytest-benchmark performance test suite (10 benchmarks)
-└── docs/                                  # Complete Stage 0, Stage 1 & Stage 2 architecture records
+│   ├── unit/                              # Isolated component & boundary tests (110 tests)
+│   ├── property/                          # Hypothesis mathematical invariant tests (12 tests)
+│   ├── integration/                       # End-to-end Pipeline & Detector tests (10 tests)
+│   └── fixtures/                          # Synthetic FFmpeg video & gameplay test fixtures
+├── benchmarks/                            # pytest-benchmark performance test suite (14 benchmarks)
+└── docs/                                  # Complete Stage 0, Stage 1, Stage 2 & Stage 3 records
 ```
 
 ---
@@ -111,11 +123,16 @@ pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff
 | **Sparse Keyframe Extraction** | [`frames.py`](./packages/media/src/blazzid_media/frames.py) | [`test_frames.py`](./tests/unit/test_frames.py) | **$52.70\text{ms}$** (3 keyframes via OpenCV) |
 | **Waveform Peak Generation** | [`waveform.py`](./packages/media/src/blazzid_media/waveform.py) | [`test_waveform.py`](./tests/unit/test_waveform.py) | **$1.28\text{ms}$** ($776\text{ ops/s}$ on 10s audio) |
 | **End-to-End MediaPipeline** | [`pipeline.py`](./packages/media/src/blazzid_media/pipeline.py) | [`test_media_pipeline.py`](./tests/integration/test_media_pipeline.py) | **$515.94\text{ms}$** (~6x faster than realtime) |
+| **Visual Feature Extraction** | [`features.py`](./packages/detection/src/blazzid_detection/features.py) | [`test_detection_features.py`](./tests/unit/test_detection_features.py) | **$10.51\text{ms}$** ($95\text{ frames/s}$) |
+| **Signal Burst & Combat State** | [`activity.py`](./packages/detection/src/blazzid_detection/activity.py) | [`test_detection_activity.py`](./tests/unit/test_detection_activity.py) | **$226.78\text{ }\mu\text{s}$** ($4,409\text{ seq/s}$) |
+| **Hypothesis Clustering & NMS** | [`grouping.py`](./packages/detection/src/blazzid_detection/grouping.py) | [`test_detection_grouping.py`](./tests/unit/test_detection_grouping.py) | **$1.19\text{ms}$** ($836\text{ ops/s}$) |
+| **End-to-End Gameplay Detection** | [`detector.py`](./packages/detection/src/blazzid_detection/detector.py) | [`test_gameplay_detector.py`](./tests/integration/test_gameplay_detector.py) | **$127.35\text{ms}$** (30s match, ~92x realtime) |
 
 ---
 
 ## 6. Architecture & Engineering Documentation Index
 
+- [**docs/gameplay-event-detection.md**](./docs/gameplay-event-detection.md): Stage 3 gameplay event detection and candidate generation.
 - [**docs/media-pipeline.md**](./docs/media-pipeline.md): Stage 2 media ingestion, preprocessing, and fast video analysis.
 - [**docs/development-setup.md**](./docs/development-setup.md): Complete local setup and quality gate guide.
 - [**docs/algorithm-implementation.md**](./docs/algorithm-implementation.md): Algorithmic proofs, invariants, and benchmark record.

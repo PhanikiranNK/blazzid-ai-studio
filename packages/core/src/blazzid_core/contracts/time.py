@@ -84,3 +84,11 @@ class TimeInterval(BaseModel):
         """Calculates the duration of overlap in seconds (0.0 if disjoint)."""
         inter = self.intersection(other)
         return inter.duration if inter is not None else 0.0
+
+    def intersection_over_union(self, other: TimeInterval) -> float:
+        """Computes temporal Intersection over Union (Jaccard index) in [0.0, 1.0]."""
+        overlap = self.overlap_duration(other)
+        if overlap <= 0.0:
+            return 0.0
+        union = self.duration + other.duration - overlap
+        return overlap / union if union > 0.0 else 0.0
