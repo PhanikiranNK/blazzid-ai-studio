@@ -22,7 +22,8 @@
 - [x] **Stage 1: Repository Foundation, Contracts & Core Algorithms** (Complete — see [`docs/algorithm-implementation.md`](./docs/algorithm-implementation.md))
 - [x] **Stage 2: Media Ingestion, Preprocessing & Fast Video Analysis** (Complete — see [`docs/media-pipeline.md`](./docs/media-pipeline.md))
 - [x] **Stage 3: Gameplay Event Detection & Candidate Generation** (Complete — see [`docs/gameplay-event-detection.md`](./docs/gameplay-event-detection.md))
-- [ ] **Stage 4: Highlight Ranking, Scoring & Montage Assembly** (Pending explicit approval)
+- [x] **Stage 4: Highlight Ranking, Duration-Budgeted Selection & Montage Assembly** (Complete — see [`docs/highlight-assembly.md`](./docs/highlight-assembly.md))
+- [ ] **Stage 5: Production Service Architecture & Distributed Job Orchestration** (Pending explicit approval)
 
 ---
 
@@ -36,7 +37,7 @@ source .venv/bin/activate
 
 # 2. Install editable packages and development dependencies
 pip install --upgrade pip
-pip install -e packages/core -e packages/algorithms -e packages/media -e packages/detection
+pip install -e packages/core -e packages/algorithms -e packages/media -e packages/detection -e packages/assembly
 pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff>=0.3.0" "mypy>=1.9.0"
 ```
 
@@ -47,12 +48,12 @@ pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff
 .venv/bin/ruff check .
 
 # Strict Type Checking (mypy --strict across all packages, test suites, and benchmarks)
-.venv/bin/mypy --strict packages/core/src packages/algorithms/src packages/media/src packages/detection/src tests benchmarks
+.venv/bin/mypy --strict packages/core/src packages/algorithms/src packages/media/src packages/detection/src packages/assembly/src tests benchmarks
 
-# Complete Test Suite (135 tests: unit, property, synthetic media, and detector integration)
+# Complete Test Suite (152 tests: unit, property, synthetic media, and pipeline integration)
 .venv/bin/pytest -v tests
 
-# Repeatable Performance Benchmarks (14 benchmarks)
+# Repeatable Performance Benchmarks (17 benchmarks)
 .venv/bin/pytest -v benchmarks
 ```
 
@@ -87,24 +88,36 @@ pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff
 │   │       ├── pipeline.py                # Composable local MediaPipeline orchestrator
 │   │       ├── models.py                  # Pydantic v2 metadata & pipeline result schemas
 │   │       └── errors.py                  # Structured domain media exceptions
-│   └── detection/                         # blazzid-detection: Stage 3 gameplay event detection
+│   ├── detection/                         # blazzid-detection: Stage 3 gameplay event detection
+│   │   ├── pyproject.toml
+│   │   └── src/blazzid_detection/
+│   │       ├── models.py                  # FrameFeatureRecord, RawEventTrigger, DetectionResult
+│   │       ├── config.py                  # Validated DetectionConfig thresholds and window sizes
+│   │       ├── features.py                # Normalized visual feature extraction (luminance, hist, Sobel)
+│   │       ├── activity.py                # Activity metrics, Welford rolling z-score bursts & combat
+│   │       ├── transitions.py             # Abrupt scene cuts & visual boundary detection
+│   │       ├── grouping.py                # Hypothesis clustering, narrative padding & NMS deduplication
+│   │       ├── scoring.py                 # Multi-detector evidence calibration & Observation provenance
+│   │       └── detector.py                # Public GameplayEventDetector orchestrator
+│   └── assembly/                          # blazzid-assembly: Stage 4 ranking, selection & montage rendering
 │       ├── pyproject.toml
-│       └── src/blazzid_detection/
-│           ├── models.py                  # FrameFeatureRecord, RawEventTrigger, DetectionResult
-│           ├── config.py                  # Validated DetectionConfig thresholds and window sizes
-│           ├── features.py                # Normalized visual feature extraction (luminance, hist, Sobel)
-│           ├── activity.py                # Activity metrics, Welford rolling z-score bursts & combat
-│           ├── transitions.py             # Abrupt scene cuts & visual boundary detection
-│           ├── grouping.py                # Hypothesis clustering, narrative padding & NMS deduplication
-│           ├── scoring.py                 # Multi-detector evidence calibration & Observation provenance
-│           └── detector.py                # Public GameplayEventDetector orchestrator
+│       └── src/blazzid_assembly/
+│           ├── models.py                  # RankedCandidate, PlannedClip, EditPlan, ValidationReport, EditManifest
+│           ├── config.py                  # Predefined profiles (16:9, 9:16), AssemblyConfig, RankingConfig
+│           ├── ranking.py                 # Multi-factor highlight scoring & explainable ranking
+│           ├── selection.py               # Constrained 2D DP selection with structured exclusion audits
+│           ├── planning.py                # Context lead-in/out padding & montage timeline mapping
+│           ├── rendering.py               # Subprocess FFmpeg clip extraction, aspect padding & concat
+│           ├── validation.py              # ffprobe stream inspection & headless decode smoke tests
+│           ├── pipeline.py                # Unified HighlightAssemblyPipeline orchestrator
+│           └── errors.py                  # Structured domain assembly & render exceptions
 ├── tests/
-│   ├── unit/                              # Isolated component & boundary tests (110 tests)
+│   ├── unit/                              # Isolated component & boundary tests (126 tests)
 │   ├── property/                          # Hypothesis mathematical invariant tests (12 tests)
-│   ├── integration/                       # End-to-end Pipeline & Detector tests (10 tests)
+│   ├── integration/                       # End-to-end Pipeline & Assembly tests (14 tests)
 │   └── fixtures/                          # Synthetic FFmpeg video & gameplay test fixtures
-├── benchmarks/                            # pytest-benchmark performance test suite (14 benchmarks)
-└── docs/                                  # Complete Stage 0, Stage 1, Stage 2 & Stage 3 records
+├── benchmarks/                            # pytest-benchmark performance test suite (17 benchmarks)
+└── docs/                                  # Complete Stage 0, Stage 1, Stage 2, Stage 3 & Stage 4 records
 ```
 
 ---
@@ -127,11 +140,16 @@ pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff
 | **Signal Burst & Combat State** | [`activity.py`](./packages/detection/src/blazzid_detection/activity.py) | [`test_detection_activity.py`](./tests/unit/test_detection_activity.py) | **$226.78\text{ }\mu\text{s}$** ($4,409\text{ seq/s}$) |
 | **Hypothesis Clustering & NMS** | [`grouping.py`](./packages/detection/src/blazzid_detection/grouping.py) | [`test_detection_grouping.py`](./tests/unit/test_detection_grouping.py) | **$1.19\text{ms}$** ($836\text{ ops/s}$) |
 | **End-to-End Gameplay Detection** | [`detector.py`](./packages/detection/src/blazzid_detection/detector.py) | [`test_gameplay_detector.py`](./tests/integration/test_gameplay_detector.py) | **$127.35\text{ms}$** (30s match, ~92x realtime) |
+| **Candidate Utility Ranking** | [`ranking.py`](./packages/assembly/src/blazzid_assembly/ranking.py) | [`test_assembly_ranking.py`](./tests/unit/test_assembly_ranking.py) | **$562.29\text{ }\mu\text{s}$** ($1,778\text{ ops/s}$) |
+| **Constrained Highlight Selection** | [`selection.py`](./packages/assembly/src/blazzid_assembly/selection.py) | [`test_assembly_selection.py`](./tests/unit/test_assembly_selection.py) | **$1.93\text{ms}$** ($518\text{ ops/s}$) |
+| **Clip Boundary Planning** | [`planning.py`](./packages/assembly/src/blazzid_assembly/planning.py) | [`test_assembly_planning.py`](./tests/unit/test_assembly_planning.py) | **$139.74\text{ }\mu\text{s}$** ($7,156\text{ ops/s}$) |
+| **Highlight Reel Montage Assembly** | [`pipeline.py`](./packages/assembly/src/blazzid_assembly/pipeline.py) | [`test_highlight_assembly_pipeline.py`](./tests/integration/test_highlight_assembly_pipeline.py) | **$\approx 1.8\text{s}$** (Real-time MP4 render & verify) |
 
 ---
 
 ## 6. Architecture & Engineering Documentation Index
 
+- [**docs/highlight-assembly.md**](./docs/highlight-assembly.md): Stage 4 highlight ranking, duration-budgeted selection & montage assembly.
 - [**docs/gameplay-event-detection.md**](./docs/gameplay-event-detection.md): Stage 3 gameplay event detection and candidate generation.
 - [**docs/media-pipeline.md**](./docs/media-pipeline.md): Stage 2 media ingestion, preprocessing, and fast video analysis.
 - [**docs/development-setup.md**](./docs/development-setup.md): Complete local setup and quality gate guide.

@@ -52,7 +52,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["blazzid_core", "blazzid_algorithms", "blazzid_media", "blazzid_detection"]
+known-first-party = ["blazzid_core", "blazzid_algorithms", "blazzid_media", "blazzid_detection", "blazzid_assembly"]
 
 [tool.mypy]
 python_version = "3.9"
@@ -69,12 +69,12 @@ warn_unused_ignores = true
 warn_return_any = true
 no_implicit_reexport = true
 show_error_codes = true
-mypy_path = "packages/core/src:packages/algorithms/src:packages/media/src:packages/detection/src"
+mypy_path = "packages/core/src:packages/algorithms/src:packages/media/src:packages/detection/src:packages/assembly/src"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests", "benchmarks"]
-pythonpath = ["packages/core/src", "packages/algorithms/src", "packages/media/src", "packages/detection/src"]
+pythonpath = ["packages/core/src", "packages/algorithms/src", "packages/media/src", "packages/detection/src", "packages/assembly/src", "."]
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",
