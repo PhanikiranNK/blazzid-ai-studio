@@ -62,6 +62,27 @@ uvicorn blazzid_api.main:app --host 0.0.0.0 --port 8000
 python -m blazzid_worker.main
 ```
 
+### Next.js Frontend Studio Application
+```bash
+# 1. Install frontend dependencies
+cd apps/web
+npm install
+
+# 2. Run the Next.js development server
+npm run dev
+
+# 3. Access the Studio in your browser
+# Open http://localhost:3000
+```
+
+Frontend quality verification:
+```bash
+cd apps/web
+npm run typecheck    # Strict TypeScript checks
+npm run lint         # ESLint 9 checks
+npm run build        # Production Next.js Turbopack build
+```
+
 ### Quality Gate Commands (From Repository Root)
 ```bash
 # Formatting & Linting
@@ -132,6 +153,10 @@ python -m blazzid_worker.main
 │           ├── validation.py              # ffprobe stream inspection & headless decode smoke tests
 │           ├── pipeline.py                # Unified HighlightAssemblyPipeline orchestrator
 │           └── errors.py                  # Structured domain assembly & render exceptions
+├── apps/
+│   ├── web/                               # Next.js 16 App Router frontend studio
+│   ├── api/                               # FastAPI REST service & job orchestration endpoints
+│   └── worker/                            # Media processing worker daemon & Redis Streams consumer
 ├── tests/
 │   ├── unit/                              # Isolated component & boundary tests (126 tests)
 │   ├── property/                          # Hypothesis mathematical invariant tests (12 tests)
