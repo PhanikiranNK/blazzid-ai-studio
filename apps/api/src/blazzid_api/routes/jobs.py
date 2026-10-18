@@ -124,7 +124,8 @@ async def submit_job(
             detail=f"target_duration_sec must be between {settings.min_job_duration_sec} and {settings.max_job_duration_sec} seconds",
         )
 
-    if assembly_profile not in VALID_PROFILES:
+    base_profile = assembly_profile.split(":")[0].strip()
+    if base_profile not in VALID_PROFILES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Unsupported assembly_profile: {assembly_profile}. Valid options: {sorted(VALID_PROFILES)}",

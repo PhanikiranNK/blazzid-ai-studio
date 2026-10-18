@@ -12,12 +12,12 @@ interface TopBarProps {
 
 export function TopBar({ onNewEdit, onRefresh, isRefreshing }: TopBarProps) {
   return (
-    <header className="h-16 border-b border-[#1a1f30] bg-[#0c0e17]/80 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-20 select-none">
+    <header className="h-16 border-b border-[#D8E2D9] bg-[#E8EFE9]/80 backdrop-blur-md px-6 sm:px-8 flex items-center justify-between sticky top-0 z-20 select-none">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+        <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
           Gameplay Highlight Studio
         </h1>
-        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#181d2c] border border-[#262e45] text-slate-300">
+        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white border border-[#D5DFD5] text-slate-700 shadow-2xs">
           Brawl Stars Edition
         </span>
       </div>
@@ -25,7 +25,7 @@ export function TopBar({ onNewEdit, onRefresh, isRefreshing }: TopBarProps) {
       <div className="flex items-center gap-3">
         {onRefresh && (
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={onRefresh}
             isLoading={isRefreshing}

@@ -51,7 +51,7 @@ export function ProfileSelector({
 
   return (
     <div className="space-y-3">
-      <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
         Assembly Format & Profile
       </label>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -65,44 +65,44 @@ export function ProfileSelector({
               type="button"
               onClick={() => onSelect(p.id, p.ratio)}
               className={cn(
-                "relative text-left p-4 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col justify-between group",
+                "relative text-left p-4 sm:p-5 rounded-2xl border transition-all duration-150 cursor-pointer flex flex-col justify-between group",
                 isSelected
-                  ? "bg-[#181d2e] border-amber-500/80 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/40"
-                  : "bg-[#111420] border-[#1d2336] hover:border-[#2b334d] hover:bg-[#141826]"
+                  ? "bg-white border-[#FF5722] shadow-sm shadow-orange-500/10 ring-1 ring-[#FF5722]"
+                  : "bg-[#F9FAF9] border-[#E3E8E3] hover:border-[#FF5722]/50 hover:bg-orange-50/10"
               )}
             >
               <div>
-                <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center justify-between mb-3">
                   <div
                     className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                      "w-8 h-8 rounded-xl flex items-center justify-center transition-colors shadow-xs",
                       isSelected
-                        ? "bg-amber-500/20 text-amber-400"
-                        : "bg-slate-800/60 text-slate-400 group-hover:text-slate-300"
+                        ? "bg-orange-50 text-[#FF5722]"
+                        : "bg-white text-slate-700 border border-slate-200/60 group-hover:text-[#FF5722]"
                     )}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
                   {isSelected && (
-                    <div className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center">
+                    <div className="w-5 h-5 rounded-full bg-[#FF5722] text-white flex items-center justify-center">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
                   )}
                 </div>
-                <div className="font-bold text-sm text-white mb-1">
+                <div className="font-bold text-sm text-slate-900 mb-1">
                   {p.title}
                 </div>
-                <div className="text-xs text-slate-400 leading-relaxed mb-3">
+                <div className="text-xs text-slate-600 leading-relaxed mb-3">
                   {p.description}
                 </div>
               </div>
 
               <div
                 className={cn(
-                  "text-[10px] font-mono px-2 py-0.5 rounded border inline-block w-fit",
+                  "text-[10px] font-mono px-2 py-0.5 rounded-full border inline-block w-fit font-medium",
                   isSelected
-                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                    : "bg-slate-800/40 text-slate-400 border-slate-700/50"
+                    ? "bg-orange-50 text-[#FF5722] border-orange-200"
+                    : "bg-white text-slate-600 border-slate-200"
                 )}
               >
                 {p.badge}

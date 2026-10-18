@@ -170,18 +170,34 @@ class MediaJobProcessor:
             self._check_cancellation(job_id, is_cancelled_fn)
             self.repository.update_progress(job_id, worker_id, JobStage.PLANNING_EDIT)
 
-            # Map profile
+            # Map profile and parse viral editing enhancements
+            raw_profile = job.assembly_profile or "youtube_shorts"
+            profile_tokens = [tok.strip().lower() for tok in raw_profile.split(":")]
+            base_profile = profile_tokens[0]
+
             profile_enum = (
                 AssemblyProfile.PORTRAIT_9_16
-                if job.assembly_profile in ("youtube_shorts", "PORTRAIT_9_16")
+                if base_profile in ("youtube_shorts", "portrait_9_16", "PORTRAIT_9_16")
                 else AssemblyProfile.LANDSCAPE_16_9
             )
+
+            enable_zoom = "zoom" in profile_tokens or "auto_zoom" in profile_tokens
+            enable_meme = "meme" in profile_tokens or "memes" in profile_tokens
+            soundtrack_name = None
+            for s_style in ("phonk", "cyber", "trap"):
+                if s_style in profile_tokens:
+                    soundtrack_name = s_style
+                    break
 
             assembly_config = AssemblyConfig(
                 profile=profile_enum,
                 target_duration_seconds=job.target_duration_sec,
                 max_clips_count=job.max_clips,
                 work_dir=scratch_dir / "assembly",
+                expand_to_budget=True,
+                auto_zoom=enable_zoom,
+                meme_overlays=enable_meme,
+                soundtrack=soundtrack_name,
             )
             assembly_pipeline = HighlightAssemblyPipeline(config=assembly_config)
 

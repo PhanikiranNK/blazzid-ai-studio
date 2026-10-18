@@ -152,6 +152,22 @@ class AssemblyConfig(BaseModel):
     keep_intermediate_clips: bool = Field(
         default=False, description="Whether to retain per-clip video segments after assembly."
     )
+    expand_to_budget: bool = Field(
+        default=False,
+        description="Whether to expand clip context padding to fulfill the target duration budget.",
+    )
+    auto_zoom: bool = Field(
+        default=False,
+        description="Whether to apply dynamic action cam punch-in zoom during combat climaxes.",
+    )
+    meme_overlays: bool = Field(
+        default=False,
+        description="Whether to render viral gaming reaction stickers at climax timestamps.",
+    )
+    soundtrack: Optional[str] = Field(
+        default=None,
+        description="Optional trending soundtrack style ('phonk', 'cyber', 'trap', or None).",
+    )
 
     @model_validator(mode="after")
     def validate_durations(self) -> AssemblyConfig:

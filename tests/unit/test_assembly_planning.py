@@ -89,3 +89,26 @@ def test_planning_montage_timeline_offsets_are_contiguous() -> None:
     assert plan.clips[1].montage_interval.end == 11.0
 
     assert plan.total_duration_seconds == 11.0
+
+
+def test_planning_expands_to_target_budget_when_configured() -> None:
+    c1 = _make_candidate("c1", 10.0, 16.0)  # 6s
+    c2 = _make_candidate("c2", 30.0, 38.0)  # 8s
+    c3 = _make_candidate("c3", 50.0, 55.0)  # 5s
+    c4 = _make_candidate("c4", 90.0, 104.0)  # 14s
+    # Total candidates = 33s in 120s video. Target is 60s.
+
+    cfg = AssemblyConfig(
+        target_duration_seconds=60.0,
+        expand_to_budget=True,
+    )
+    plan = plan_edit_decision_list([c1, c2, c3, c4], [], source_duration_seconds=120.0, config=cfg)
+
+    assert len(plan.clips) == 4
+    # Total duration should reach 60.0s
+    assert abs(plan.total_duration_seconds - 60.0) <= 0.1
+    assert plan.budget_shortfall_seconds <= 0.1
+    # Verify non-overlapping
+    for i in range(len(plan.clips) - 1):
+        assert plan.clips[i].source_interval.end <= plan.clips[i + 1].source_interval.start
+

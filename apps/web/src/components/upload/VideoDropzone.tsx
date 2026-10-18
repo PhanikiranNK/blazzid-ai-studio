@@ -24,7 +24,9 @@ export function VideoDropzone({
     height: number;
   } | null>(null);
 
+
   const inputRef = useRef<HTMLInputElement>(null);
+
 
   // Manage object URL lifecycle with useMemo
   const previewUrl = React.useMemo(() => {
@@ -126,10 +128,10 @@ export function VideoDropzone({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
           Source Gameplay Recording
         </label>
-        <span className="text-[11px] text-slate-400 font-mono">
+        <span className="text-[11px] text-slate-500 font-mono">
           Max {formatBytes(maxSizeBytes)}
         </span>
       </div>
@@ -151,21 +153,25 @@ export function VideoDropzone({
       />
 
       {/* When File is Selected: Interactive Preview */}
-      {file && previewUrl ? (
-        <div className="p-4 rounded-2xl bg-[#141826] border border-[#23293d] space-y-4">
+      {file ? (
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E2E8E2] shadow-xs space-y-4">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
             {/* Embedded video preview thumbnail */}
-            <div className="relative w-full md:w-56 h-32 rounded-xl bg-black overflow-hidden border border-[#2b334d] flex-shrink-0">
-              <video
-                src={previewUrl}
-                onLoadedMetadata={handleLoadedMetadata}
-                className="w-full h-full object-contain"
-                muted
-                controls={false}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+            <div className="relative w-full md:w-56 h-32 rounded-xl bg-slate-950 overflow-hidden border border-slate-200 flex-shrink-0 flex items-center justify-center">
+              {previewUrl ? (
+                <video
+                  src={previewUrl}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  className="w-full h-full object-contain"
+                  muted
+                  controls={false}
+                />
+              ) : (
+                <Film className="w-10 h-10 text-slate-600" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
               {mediaMeta && (
-                <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 font-mono text-[10px] text-amber-400 font-bold border border-amber-500/30">
+                <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 font-mono text-[10px] text-white font-bold">
                   {formatDuration(mediaMeta.duration)}
                 </div>
               )}
@@ -175,10 +181,15 @@ export function VideoDropzone({
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h4 className="font-bold text-sm text-white truncate" title={file.name}>
-                    {file.name}
-                  </h4>
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-slate-900 truncate" title={file.name}>
+                      {file.name}
+                    </h4>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Ready
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5">
                     {formatBytes(file.size)}
                   </p>
                 </div>
@@ -186,7 +197,7 @@ export function VideoDropzone({
                   variant="ghost"
                   size="sm"
                   onClick={handleRemove}
-                  className="text-slate-400 hover:text-rose-400 p-1.5"
+                  className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg"
                   title="Remove video"
                 >
                   <X className="w-4 h-4" />
@@ -194,13 +205,13 @@ export function VideoDropzone({
               </div>
 
               {/* Resolution and codec chip */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-300">
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                 {mediaMeta ? (
                   <>
-                    <span className="px-2 py-0.5 rounded bg-[#1c2235] border border-[#28314a] font-mono text-[11px] text-slate-300">
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 font-mono text-[11px] text-slate-700 font-semibold">
                       {mediaMeta.width}x{mediaMeta.height}
                     </span>
-                    <span className="px-2 py-0.5 rounded bg-[#1c2235] border border-[#28314a] font-mono text-[11px] text-indigo-400">
+                    <span className="px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200/80 font-mono text-[11px] text-[#FF5722] font-semibold">
                       {mediaMeta.width > mediaMeta.height ? "Landscape (16:9)" : "Portrait (9:16)"}
                     </span>
                   </>
@@ -213,7 +224,7 @@ export function VideoDropzone({
 
               <div className="flex items-center gap-2 pt-1">
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   type="button"
                   onClick={handleBrowseClick}
@@ -234,38 +245,36 @@ export function VideoDropzone({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "p-8 rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center gap-3 select-none group block",
+            "p-8 sm:p-10 rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center gap-3 select-none group block",
             isDragOver
-              ? "bg-amber-500/10 border-amber-500 scale-[0.99] shadow-xl shadow-amber-500/10 ring-2 ring-amber-500/20"
-              : "bg-[#111420] border-[#22283d] hover:border-[#384263] hover:bg-[#141826]"
+              ? "bg-orange-50/50 border-[#FF5722] scale-[0.99] shadow-sm"
+              : "bg-[#F9FAF9] border-[#D4DDD4] hover:border-[#FF5722] hover:bg-orange-50/15"
           )}
         >
           <div
             className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105 duration-200",
-              isDragOver
-                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30"
-                : "bg-[#181d2c] text-slate-400 group-hover:text-amber-400 group-hover:bg-[#1f2538]"
+              "w-12 h-12 rounded-full flex items-center justify-center transition-transform group-hover:scale-105 duration-200 bg-white shadow-xs border border-slate-200/80 pointer-events-none",
+              isDragOver ? "text-[#FF5722] border-[#FF5722]" : "text-slate-600 group-hover:text-[#FF5722]"
             )}
           >
-            <UploadCloud className="w-7 h-7" />
+            <UploadCloud className="w-6 h-6" />
           </div>
 
-          <div className="space-y-1">
-            <p className="font-bold text-sm text-white">
+          <div className="space-y-1 pointer-events-none">
+            <p className="font-bold text-sm text-slate-900">
               Drag & drop gaming video, or{" "}
-              <span className="text-amber-400 underline decoration-amber-500/50 underline-offset-2">
+              <span className="text-[#FF5722] underline decoration-[#FF5722]/40 underline-offset-2">
                 browse files
               </span>
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Supports Brawl Stars recordings up to 500MB (MP4, MOV, MKV, WEBM)
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono pt-1">
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono pt-1 pointer-events-none">
             <span className="flex items-center gap-1">
-              <Film className="w-3 h-3 text-slate-500" />
+              <Film className="w-3 h-3 text-slate-400" />
               1080p / 60fps recommended
             </span>
           </div>
@@ -274,7 +283,7 @@ export function VideoDropzone({
 
       {/* Validation Error Banner */}
       {errorMessage && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>

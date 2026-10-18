@@ -2,9 +2,8 @@
 
 import React from "react";
 import { JobResponse } from "@/types/api";
-import { Card, CardHeader, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Film, Clock, ChevronRight, History } from "lucide-react";
+import { Film, Clock, ChevronRight } from "lucide-react";
 import { formatDateRelative, formatDuration } from "@/lib/utils";
 
 interface RecentJobsListProps {
@@ -39,74 +38,87 @@ export function RecentJobsList({
   };
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex items-center justify-between py-4">
-        <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-amber-400" />
-          <h3 className="font-bold text-sm text-white">Recent Highlight Jobs</h3>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-base text-slate-900">Recent Highlights</h3>
+          <p className="text-xs text-slate-500">
+            Review recent Brawl Stars runs and preview completed montage renders
+          </p>
         </div>
-        <span className="text-xs text-slate-400 font-mono">
-          {jobs.length} total
+        <span className="text-xs text-slate-500 font-mono bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+          {jobs.length} jobs
         </span>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-0">
+      <div>
         {isLoading && jobs.length === 0 ? (
-          <div className="p-6 space-y-3">
+          <div className="space-y-2.5">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-14 rounded-xl bg-[#171b29] animate-pulse"
+                className="h-16 rounded-2xl bg-[#F6F8F6] border border-[#E7EBE7] animate-pulse"
               />
             ))}
           </div>
         ) : jobs.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 space-y-2">
-            <Film className="w-8 h-8 mx-auto text-slate-600" />
-            <p className="text-xs font-medium">No previous jobs submitted yet.</p>
+          <div className="p-8 text-center rounded-2xl bg-[#F6F8F6] border border-[#E7EBE7] text-slate-500 space-y-2">
+            <Film className="w-8 h-8 mx-auto text-slate-400" />
+            <p className="text-xs font-semibold text-slate-700">No previous jobs submitted yet.</p>
             <p className="text-[11px] text-slate-500">
               Upload a Brawl Stars recording above to start your first edit.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#1a1f30]">
-            {jobs.map((job) => (
-              <button
-                key={job.job_id}
-                type="button"
-                onClick={() => onSelectJob(job)}
-                className="w-full text-left p-4 hover:bg-[#161a28] transition-colors flex items-center justify-between group cursor-pointer"
-              >
-                <div className="min-w-0 flex-1 pr-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-xs text-white truncate max-w-[200px] sm:max-w-xs" title={job.source_filename}>
-                      {job.source_filename}
+          <div className="space-y-2.5">
+            {jobs.map((job, idx) => {
+              const numStr = (idx + 1).toString().padStart(2, "0");
+              return (
+                <button
+                  key={job.job_id}
+                  type="button"
+                  onClick={() => onSelectJob(job)}
+                  className="w-full text-left p-4 rounded-2xl bg-[#F6F8F6] border border-[#E7EBE7] hover:border-[#D5DFD5] hover:bg-[#EEF3EE] transition-all flex items-center justify-between group cursor-pointer shadow-xs"
+                >
+                  <div className="flex items-center gap-4 min-w-0 flex-1 pr-4">
+                    <span className="font-mono text-xs font-bold text-slate-400 w-6 flex-shrink-0">
+                      {numStr}
                     </span>
-                    {getBadge(job.state)}
-                  </div>
-                  <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
-                    <span>{job.job_id}</span>
-                    <span>•</span>
-                    <span>{formatDuration(job.target_duration_sec)}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-500" />
-                      {formatDateRelative(job.created_at)}
-                    </span>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 text-slate-500 group-hover:text-amber-400 transition-colors">
-                  <span className="text-xs font-semibold hidden sm:inline">
-                    {job.state === "SUCCEEDED" ? "Preview" : "View"}
-                  </span>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
-              </button>
-            ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-bold text-sm text-slate-900 truncate max-w-[220px] sm:max-w-md" title={job.source_filename}>
+                          {job.source_filename}
+                        </span>
+                        {getBadge(job.state)}
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono">
+                        <span>{job.job_id.slice(0, 8)}...</span>
+                        <span>•</span>
+                        <span className="text-[#FF5722] font-semibold">{formatDuration(job.target_duration_sec)}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          {formatDateRelative(job.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-slate-700 hidden sm:inline group-hover:text-[#FF5722] transition-colors">
+                      {job.state === "SUCCEEDED" ? "Preview Montage" : "View Progress"}
+                    </span>
+                    <div className="w-8 h-8 rounded-full bg-white border border-slate-200/80 flex items-center justify-center text-slate-600 group-hover:text-[#FF5722] group-hover:border-[#FF5722] transition-all shadow-xs">
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

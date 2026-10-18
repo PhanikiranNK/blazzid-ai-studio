@@ -27,11 +27,11 @@ export function DurationSlider({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5 text-amber-400" />
+        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5 text-[#FF5722]" />
           Target Montage Duration
         </label>
-        <span className="text-sm font-extrabold text-amber-400 font-mono bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-500/20">
+        <span className="text-sm font-extrabold text-[#FF5722] font-mono bg-orange-50 px-2.5 py-0.5 rounded-lg border border-orange-200">
           {Math.round(duration)} seconds
         </span>
       </div>
@@ -45,9 +45,9 @@ export function DurationSlider({
           step={5}
           value={duration}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="w-full h-2 bg-[#1b2033] rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
+          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#FF5722] focus:outline-none"
         />
-        <div className="flex justify-between text-[10px] font-mono text-slate-400 mt-1.5">
+        <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-1.5 font-medium">
           <span>{min}s (Min)</span>
           <span>60s</span>
           <span>180s</span>
@@ -65,10 +65,10 @@ export function DurationSlider({
               type="button"
               onClick={() => onChange(preset.value)}
               className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-lg border transition-all cursor-pointer",
+                "px-3 py-1 text-xs font-medium rounded-full border transition-all cursor-pointer shadow-xs",
                 isSelected
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40 font-semibold"
-                  : "bg-[#111422] text-slate-400 border-[#1e2436] hover:text-slate-200 hover:border-[#2b334d]"
+                  ? "bg-[#FF5722] text-white border-[#FF5722] font-semibold shadow-xs"
+                  : "bg-white text-slate-700 border-slate-200 hover:text-slate-900 hover:bg-slate-50"
               )}
             >
               {preset.label}

@@ -117,6 +117,53 @@ def plan_edit_decision_list(
             raw_clips[i].end = max(raw_clips[i].start + 0.5, midpoint)
             raw_clips[i + 1].start = max(raw_clips[i].end, midpoint)
 
+    # Step 3b: If expand_to_budget is enabled and there is shortfall, expand clips into available context
+    if config.expand_to_budget and raw_clips:
+        current_dur = sum(c.end - c.start for c in raw_clips)
+        shortfall = config.target_duration_seconds - current_dur
+        max_passes = 10
+        while shortfall > 0.05 and max_passes > 0:
+            max_passes -= 1
+            allocated_in_pass = 0.0
+            per_clip_target = shortfall / len(raw_clips)
+
+            for i in range(len(raw_clips)):
+                left_bound = 0.0 if i == 0 else raw_clips[i - 1].end
+                right_bound = (
+                    source_duration_seconds
+                    if i == len(raw_clips) - 1
+                    else raw_clips[i + 1].start
+                )
+
+                left_headroom = max(0.0, raw_clips[i].start - left_bound)
+                right_headroom = max(0.0, right_bound - raw_clips[i].end)
+                total_headroom = left_headroom + right_headroom
+
+                if total_headroom <= 0.01:
+                    continue
+
+                desired_exp = min(per_clip_target, total_headroom, shortfall)
+                exp_left = min(left_headroom, desired_exp / 2.0)
+                exp_right = min(right_headroom, desired_exp / 2.0)
+                rem = desired_exp - (exp_left + exp_right)
+                if rem > 0.0:
+                    add_left = min(left_headroom - exp_left, rem)
+                    exp_left += add_left
+                    rem -= add_left
+                if rem > 0.0:
+                    add_right = min(right_headroom - exp_right, rem)
+                    exp_right += add_right
+
+                actual_exp = exp_left + exp_right
+                if actual_exp > 0.0:
+                    raw_clips[i].start = round(raw_clips[i].start - exp_left, 3)
+                    raw_clips[i].end = round(raw_clips[i].end + exp_right, 3)
+                    allocated_in_pass += actual_exp
+                    shortfall -= actual_exp
+
+            if allocated_in_pass < 0.05:
+                break
+
     # Step 4: Construct PlannedClip objects and compute montage timeline offsets
     planned_clips: list[PlannedClip] = []
     current_montage_offset = 0.0
@@ -142,12 +189,12 @@ def plan_edit_decision_list(
 
         planned_clip = PlannedClip(
             clip_index=idx,
-            candidate_id=cand.candidate_id,
+            candidate_id=item.candidate.candidate_id,
             source_interval=source_interval,
             montage_interval=montage_interval,
-            climax_timestamp=climax_ts,
-            rank_score=cand.rank_score,
-            category=cand.category,
+            climax_timestamp=item.climax,
+            rank_score=item.candidate.rank_score,
+            category=item.candidate.category,
             selection_rationale=rationale,
         )
         planned_clips.append(planned_clip)

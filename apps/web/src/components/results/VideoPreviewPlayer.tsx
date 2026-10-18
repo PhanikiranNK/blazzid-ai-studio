@@ -53,25 +53,25 @@ export function VideoPreviewPlayer({
   };
 
   return (
-    <Card elevated className="w-full max-w-4xl mx-auto overflow-hidden">
+    <Card elevated className="w-full max-w-4xl mx-auto overflow-hidden bg-white border border-[#E2E8E2] rounded-[28px] shadow-sm">
       {/* Header */}
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#EEF2EE] pb-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400" />
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#FF5722]" />
               Generated Highlight Montage
             </h2>
             <Badge variant="success">READY</Badge>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Processed from <span className="text-slate-300 font-semibold">{job.source_filename}</span>
+          <p className="text-xs text-slate-500 mt-1">
+            Processed from <span className="text-slate-800 font-semibold">{job.source_filename}</span>
           </p>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onNewEdit}>
+          <Button variant="secondary" size="sm" onClick={onNewEdit}>
             <RefreshCw className="w-3.5 h-3.5" />
             <span>New Edit</span>
           </Button>
@@ -88,12 +88,12 @@ export function VideoPreviewPlayer({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 pt-5">
         {/* Video Player Container */}
-        <div className="flex justify-center bg-black/80 rounded-2xl p-4 sm:p-6 border border-[#1e2436]">
+        <div className="flex justify-center bg-[#F4F7F4] rounded-2xl p-4 sm:p-6 border border-[#E0E7E0]">
           <div
             className={cn(
-              "relative rounded-xl overflow-hidden shadow-2xl shadow-black/80 border border-[#2b334d] bg-black",
+              "relative rounded-xl overflow-hidden shadow-lg border border-slate-300/80 bg-black",
               isPortrait
                 ? "w-full max-w-xs aspect-[9/16]"
                 : "w-full max-w-2xl aspect-video"
@@ -110,31 +110,31 @@ export function VideoPreviewPlayer({
         </div>
 
         {/* Video Summary Chips */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-[#0f121d] border border-[#1b2032] text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-2xl bg-[#F6F8F6] border border-[#E7EBE7] text-xs">
           <div>
-            <span className="text-slate-400 block text-[11px]">Format / Ratio</span>
-            <span className="font-bold text-white block mt-0.5">
+            <span className="text-slate-500 block text-[11px] font-medium">Format / Ratio</span>
+            <span className="font-bold text-slate-900 block mt-0.5">
               {isPortrait ? "9:16 Vertical (1080x1920)" : "16:9 Landscape (1920x1080)"}
             </span>
           </div>
 
           <div>
-            <span className="text-slate-400 block text-[11px]">Output Duration</span>
-            <span className="font-mono font-bold text-amber-400 block mt-0.5">
+            <span className="text-slate-500 block text-[11px] font-medium">Output Duration</span>
+            <span className="font-mono font-bold text-[#FF5722] block mt-0.5">
               {formatDuration(job.target_duration_sec)}
             </span>
           </div>
 
           <div>
-            <span className="text-slate-400 block text-[11px]">Selected Clips</span>
-            <span className="font-bold text-indigo-400 font-mono block mt-0.5">
+            <span className="text-slate-500 block text-[11px] font-medium">Selected Clips</span>
+            <span className="font-bold text-teal-700 font-mono block mt-0.5">
               {resultMeta?.manifest?.clips?.length || "Auto-Selected"} moments
             </span>
           </div>
 
           <div>
-            <span className="text-slate-400 block text-[11px]">Assembly Codec</span>
-            <span className="font-mono text-slate-300 block mt-0.5">
+            <span className="text-slate-500 block text-[11px] font-medium">Assembly Codec</span>
+            <span className="font-mono text-slate-800 block mt-0.5">
               H.264 / AAC 60fps
             </span>
           </div>
@@ -144,14 +144,14 @@ export function VideoPreviewPlayer({
         {resultMeta?.manifest?.clips && resultMeta.manifest.clips.length > 0 && (
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                 Selected Highlight Clips Breakdown
               </label>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleDownloadManifest}
-                className="text-xs text-slate-400 hover:text-amber-400"
+                className="text-xs text-slate-500 hover:text-[#FF5722]"
               >
                 <FileCode className="w-3.5 h-3.5 mr-1" />
                 View Full JSON Manifest
@@ -162,29 +162,29 @@ export function VideoPreviewPlayer({
               {resultMeta.manifest.clips.map((clip, index) => (
                 <div
                   key={clip.clip_id || index}
-                  className="flex items-center justify-between p-3 rounded-xl bg-[#141826] border border-[#21273d] text-xs"
+                  className="flex items-center justify-between p-3.5 rounded-2xl bg-[#F6F8F6] border border-[#E7EBE7] text-xs"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center font-mono font-bold text-[11px]">
+                    <span className="w-6 h-6 rounded-lg bg-orange-50 text-[#FF5722] border border-orange-200 flex items-center justify-center font-mono font-bold text-[11px]">
                       {index + 1}
                     </span>
                     <div>
-                      <div className="font-bold text-white flex items-center gap-2">
+                      <div className="font-bold text-slate-900 flex items-center gap-2">
                         <span>{clip.label || `Highlight Sequence #${index + 1}`}</span>
                         {clip.score && (
-                          <span className="text-[10px] font-mono text-indigo-400 bg-indigo-500/10 px-1.5 py-0.2 rounded border border-indigo-500/20">
+                          <span className="text-[10px] font-mono text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
                             Score: {clip.score.toFixed(2)}
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">
                         Source: {clip.source_start_sec.toFixed(1)}s - {clip.source_end_sec.toFixed(1)}s
                       </div>
                     </div>
                   </div>
 
                   <div className="text-right font-mono">
-                    <span className="font-bold text-amber-400">
+                    <span className="font-bold text-[#FF5722]">
                       {clip.duration_sec.toFixed(1)}s
                     </span>
                   </div>
@@ -195,13 +195,13 @@ export function VideoPreviewPlayer({
         )}
       </CardContent>
 
-      <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+      <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 border-t border-[#EEF2EE] py-3.5">
         <span className="font-mono text-[11px]">
           Job ID: {job.job_id}
         </span>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={handleDownloadManifest}
             className="text-xs"

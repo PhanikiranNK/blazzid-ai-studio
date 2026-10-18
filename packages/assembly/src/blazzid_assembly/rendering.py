@@ -120,13 +120,9 @@ def render_montage(
 
     profile = config.get_profile_config()
     extracted_clip_paths: list[Path] = []
-
-    # Aspect ratio and canvas filter: scale to fit within target canvas, pad with black
-    vf_filter = (
-        f"scale={profile.width}:{profile.height}:force_original_aspect_ratio=decrease,"
-        f"pad={profile.width}:{profile.height}:(ow-iw)/2:(oh-ih)/2:color=black,"
-        f"setsar=1,fps={profile.fps}"
-    )
+    assets_dir = Path(__file__).parent / "assets"
+    memes_dir = assets_dir / "memes"
+    music_dir = assets_dir / "music"
 
     try:
         # Phase 1: Extract and normalize individual clips
@@ -134,7 +130,43 @@ def render_montage(
             clip_path = working_dir / f"clip_{clip.clip_index:03d}_{clip.clip_id[:8]}.mp4"
             extracted_clip_paths.append(clip_path)
 
-            # Build clip extraction command
+            clip_dur = max(0.5, clip.source_interval.end - clip.source_interval.start)
+            if (
+                clip.climax_timestamp is not None
+                and clip.source_interval.start <= clip.climax_timestamp <= clip.source_interval.end
+            ):
+                rel_c = clip.climax_timestamp - clip.source_interval.start
+            else:
+                rel_c = clip_dur / 2.0
+            z_start = max(0.0, rel_c - 0.75)
+            z_end = min(clip_dur, rel_c + 1.25)
+            z_len = max(0.4, z_end - z_start)
+
+            vf_steps: list[str] = []
+
+            # 1. Aspect Ratio & Canvas Normalization
+            vf_steps.append(
+                f"scale={profile.width}:{profile.height}:force_original_aspect_ratio=decrease,"
+                f"pad={profile.width}:{profile.height}:(ow-iw)/2:(oh-ih)/2:color=black,"
+                f"setsar=1,fps={profile.fps}"
+            )
+
+            # 2. Action Cam Punch-In Zoom at Climax
+            if config.auto_zoom:
+                vf_steps.append(
+                    f"scale=w='{profile.width}*(1+0.22*between(t,{z_start:.3f},{z_end:.3f}))':"
+                    f"h='{profile.height}*(1+0.22*between(t,{z_start:.3f},{z_end:.3f}))':eval=frame,"
+                    f"crop={profile.width}:{profile.height}:(iw-{profile.width})/2:(ih-{profile.height})/2"
+                )
+
+            # 3. Meme Badge Overlay at Climax
+            badge_path: Optional[Path] = None
+            if config.meme_overlays and memes_dir.exists():
+                badges = ["ko_badge.png", "iq_badge.png", "victory_badge.png"]
+                cand_badge = memes_dir / badges[clip.clip_index % len(badges)]
+                if cand_badge.is_file():
+                    badge_path = cand_badge
+
             cmd = [
                 ffmpeg_exe,
                 "-y",
@@ -147,17 +179,33 @@ def render_montage(
                 str(clip.source_interval.end),
                 "-i",
                 str(source_path),
-                "-vf",
-                vf_filter,
-                "-c:v",
-                profile.video_codec,
-                "-preset",
-                "fast",
-                "-crf",
-                str(profile.crf),
-                "-pix_fmt",
-                profile.pixel_format,
             ]
+
+            if badge_path is not None:
+                cmd.extend(["-loop", "1", "-i", str(badge_path)])
+                filter_chain = ",".join(vf_steps)
+                filter_complex = (
+                    f"[0:v]{filter_chain}[base];"
+                    f"[base][1:v]overlay=x=(W-w)/2:y=H*0.18:enable='between(t,{z_start:.3f},{z_end:.3f})':shortest=1[vout]"
+                )
+                cmd.extend(["-filter_complex", filter_complex, "-map", "[vout]"])
+                if source_has_audio:
+                    cmd.extend(["-map", "0:a"])
+            else:
+                cmd.extend(["-vf", ",".join(vf_steps)])
+
+            cmd.extend(
+                [
+                    "-c:v",
+                    profile.video_codec,
+                    "-preset",
+                    "fast",
+                    "-crf",
+                    str(profile.crf),
+                    "-pix_fmt",
+                    profile.pixel_format,
+                ]
+            )
 
             if source_has_audio:
                 cmd.extend(
@@ -196,9 +244,24 @@ def render_montage(
         concat_list_path = working_dir / "concat_list.txt"
         with concat_list_path.open("w", encoding="utf-8") as f:
             for p in extracted_clip_paths:
-                # Escape single quotes in filenames for concat format
                 safe_path = str(p.resolve()).replace("'", "'\\''")
                 f.write(f"file '{safe_path}'\n")
+
+        # Check if soundtrack mixing is requested
+        music_path: Optional[Path] = None
+        if config.soundtrack and music_dir.exists():
+            music_map = {
+                "phonk": "phonk_drift.wav",
+                "cyber": "cyber_arcade.wav",
+                "trap": "trap_montage.wav",
+            }
+            cand_music = music_dir / music_map.get(config.soundtrack.lower(), "phonk_drift.wav")
+            if cand_music.is_file():
+                music_path = cand_music
+
+        intermediate_out = (
+            working_dir / "intermediate_concat.mp4" if music_path else output_path
+        )
 
         concat_cmd = [
             ffmpeg_exe,
@@ -216,7 +279,7 @@ def render_montage(
             "copy",
             "-movflags",
             "+faststart",
-            str(output_path),
+            str(intermediate_out),
         ]
 
         concat_retcode, _concat_stdout, concat_stderr = _run_cancellable_subprocess(
@@ -228,10 +291,68 @@ def render_montage(
         if concat_retcode != 0:
             raise AssemblyRenderError(f"FFmpeg concatenation failed: {concat_stderr}")
 
-        if not output_path.is_file() or output_path.stat().st_size == 0:
+        if not intermediate_out.is_file() or intermediate_out.stat().st_size == 0:
             raise AssemblyRenderError(
-                f"Rendered output montage is missing or empty at '{output_path}'"
+                f"Rendered intermediate montage is missing or empty at '{intermediate_out}'"
             )
+
+        # Phase 3: Mix trending soundtrack if configured
+        if music_path is not None:
+            if source_has_audio:
+                amix_filter = (
+                    "[0:a]volume=0.82[game];"
+                    "[1:a]volume=0.38[music];"
+                    "[game][music]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+                )
+                map_audio = "[aout]"
+            else:
+                amix_filter = "[1:a]volume=0.45[music]"
+                map_audio = "[music]"
+
+            mix_cmd = [
+                ffmpeg_exe,
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(intermediate_out),
+                "-stream_loop",
+                "-1",
+                "-i",
+                str(music_path),
+                "-filter_complex",
+                amix_filter,
+                "-map",
+                "0:v",
+                "-map",
+                map_audio,
+                "-c:v",
+                "copy",
+                "-c:a",
+                profile.audio_codec,
+                "-ar",
+                str(profile.audio_sample_rate),
+                "-b:a",
+                "192k",
+                "-movflags",
+                "+faststart",
+                str(output_path),
+            ]
+
+            mix_retcode, _mix_stdout, mix_stderr = _run_cancellable_subprocess(
+                mix_cmd,
+                timeout_seconds=config.timeout_seconds,
+                is_cancelled_fn=is_cancelled_fn,
+            )
+
+            if mix_retcode != 0:
+                raise AssemblyRenderError(f"FFmpeg soundtrack mixing failed: {mix_stderr}")
+
+            if not output_path.is_file() or output_path.stat().st_size == 0:
+                raise AssemblyRenderError(
+                    f"Rendered montage with soundtrack is missing or empty at '{output_path}'"
+                )
 
         return output_path
 

@@ -21,7 +21,7 @@ export type JobStage =
   | "VALIDATING_OUTPUT"
   | "FINALIZING";
 
-export type AssemblyProfile = "youtube_shorts" | "landscape_16_9" | "dynamic";
+export type AssemblyProfile = "youtube_shorts" | "landscape_16_9" | "dynamic" | (string & {});
 export type AspectRatio = "9:16" | "16:9";
 
 export interface JobResponse {
