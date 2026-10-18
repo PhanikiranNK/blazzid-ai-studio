@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blazzid-api"
+version = "0.1.0"
+description = "FastAPI HTTP REST service for BLAZZID AI Studio"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.6.0",
+    "blazzid-core",
+    "blazzid-storage",
+    "blazzid-jobs",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

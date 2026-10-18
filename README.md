@@ -23,7 +23,7 @@
 - [x] **Stage 2: Media Ingestion, Preprocessing & Fast Video Analysis** (Complete — see [`docs/media-pipeline.md`](./docs/media-pipeline.md))
 - [x] **Stage 3: Gameplay Event Detection & Candidate Generation** (Complete — see [`docs/gameplay-event-detection.md`](./docs/gameplay-event-detection.md))
 - [x] **Stage 4: Highlight Ranking, Duration-Budgeted Selection & Montage Assembly** (Complete — see [`docs/highlight-assembly.md`](./docs/highlight-assembly.md))
-- [ ] **Stage 5: Production Service Architecture & Distributed Job Orchestration** (Pending explicit approval)
+- [x] **Stage 5: Production Service Architecture & Distributed Job Orchestration** (Complete — see [`docs/job-lifecycle.md`](./docs/job-lifecycle.md) & [ADR 0005](./docs/adr/0005-production-service-architecture-and-job-orchestration.md))
 
 ---
 
@@ -31,14 +31,35 @@
 
 ### Environment Setup
 ```bash
-# 1. Create and activate a Python virtual environment
+# 1. Create and activate Python virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
 # 2. Install editable packages and development dependencies
-pip install --upgrade pip
-pip install -e packages/core -e packages/algorithms -e packages/media -e packages/detection -e packages/assembly
+pip install --upgrade pip "setuptools>=68.0.0" wheel
+pip install -e packages/core -e packages/algorithms -e packages/media -e packages/detection -e packages/assembly -e packages/storage -e packages/jobs -e apps/api -e apps/worker
 pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff>=0.3.0" "mypy>=1.9.0"
+```
+
+### Local Service Execution (Docker Compose)
+```bash
+# Launch PostgreSQL 16, Redis 7, API, and Media Worker
+docker compose up -d
+
+# Check API health
+curl http://localhost:8000/health/ready
+```
+
+### Standalone Local Execution (Without Docker)
+```bash
+# Apply database migrations
+DATABASE_URL="sqlite:///./blazzid_dev.db" alembic upgrade head
+
+# Terminal 1: Launch API service
+uvicorn blazzid_api.main:app --host 0.0.0.0 --port 8000
+
+# Terminal 2: Launch media worker daemon
+python -m blazzid_worker.main
 ```
 
 ### Quality Gate Commands (From Repository Root)
@@ -47,10 +68,10 @@ pip install "pytest>=8.0.0" "hypothesis>=6.98.0" "pytest-benchmark>=4.0.0" "ruff
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
 
-# Strict Type Checking (mypy --strict across all packages, test suites, and benchmarks)
-.venv/bin/mypy --strict packages/core/src packages/algorithms/src packages/media/src packages/detection/src packages/assembly/src tests benchmarks
+# Strict Type Checking (mypy --strict across all packages, apps, tests, and benchmarks)
+.venv/bin/mypy --strict packages/core/src packages/algorithms/src packages/media/src packages/detection/src packages/assembly/src packages/storage/src packages/jobs/src apps/api/src apps/worker/src tests benchmarks
 
-# Complete Test Suite (152 tests: unit, property, synthetic media, and pipeline integration)
+# Complete Test Suite (177 tests: unit, persistence, API, and worker integration)
 .venv/bin/pytest -v tests
 
 # Repeatable Performance Benchmarks (17 benchmarks)

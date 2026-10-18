@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blazzid-jobs"
+version = "0.1.0"
+description = "Job orchestration, persistence models, state machine and transactional outbox for BLAZZID AI Studio"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.6.0",
+    "sqlalchemy>=2.0.25",
+    "alembic>=1.13.0",
+    "redis>=5.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

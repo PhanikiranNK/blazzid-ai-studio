@@ -2,122 +2,103 @@
 
 ## 1. Job Lifecycle State Machine
 
-Every asynchronous background workload in BLAZZID AI Studio (media preprocessing, audio analysis, visual feature extraction, candidate ranking, and rendering) is governed by a strict, deterministic **Finite State Machine (FSM)**.
+Every asynchronous background video-processing job in BLAZZID AI Studio is governed by a strict, deterministic Finite State Machine (FSM). State transitions are centrally enforced by `blazzid_jobs.states.assert_valid_transition()`.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SUBMITTED: API creates job record
+    [*] --> QUEUED: API creates Job + Outbox record atomically
 
-    SUBMITTED --> QUEUED: Enqueued in Redis Stream
-    SUBMITTED --> REJECTED: Validation failed (quota, bad payload)
+    QUEUED --> PROCESSING: Worker claims task (atomic lease lock)
+    QUEUED --> CANCELLED: Immediate cancellation (no worker needed)
+    QUEUED --> FAILED: Early validation error
 
-    QUEUED --> RUNNING: Worker claims task (Consumer Group)
-    
-    RUNNING --> RUNNING: Periodic heartbeat refresh (TTL 30s)
-    
-    RUNNING --> COMPLETED: Worker finishes & persists artifacts
-    RUNNING --> RETRY_SCHEDULED: Transient error (backoff jitter)
-    RUNNING --> FAILED: Deterministic error or retries exhausted
-    RUNNING --> ORPHANED: Heartbeat lost (Worker node crashed)
+    PROCESSING --> SUCCEEDED: Verified montage & manifest persisted (100% progress)
+    PROCESSING --> FAILED: Non-retryable error or retries exhausted
+    PROCESSING --> QUEUED: Transient error / lease recovery (retry_count < max)
+    PROCESSING --> CANCEL_REQUESTED: User requests cancellation during execution
 
-    RETRY_SCHEDULED --> QUEUED: Delay timer fires
-    
-    ORPHANED --> QUEUED: Supervisor re-claims task (retry count < max)
-    ORPHANED --> DEAD_LETTER: Supervisor re-claims (retries exhausted)
+    CANCEL_REQUESTED --> CANCELLED: Worker cleans scratch & confirms termination
+    CANCEL_REQUESTED --> FAILED: Worker failure before cancellation acknowledged
+    CANCEL_REQUESTED --> SUCCEEDED: Finalization completed just before cancellation took effect
 
-    RUNNING --> CANCELLING: User issues cancel request
-    CANCELLING --> CANCELLED: Worker cleans scratch & confirms
+    FAILED --> QUEUED: Explicit retry / administrative recovery
 
-    COMPLETED --> [*]
-    FAILED --> [*]
-    DEAD_LETTER --> [*]
+    SUCCEEDED --> [*]
     CANCELLED --> [*]
-    REJECTED --> [*]
+    FAILED --> [*]
 ```
 
 ---
 
-## 2. State Transition Invariants & Valid Actions
+## 2. Permitted Transitions & Invariants
 
-| Current State | Target State | Trigger Condition | Side Effects & Actions |
-| :--- | :--- | :--- | :--- |
-| `SUBMITTED` | `QUEUED` | Task validated and pushed to Redis Stream | Emits `job.queued` event; client receives job ID. |
-| `QUEUED` | `RUNNING` | Worker claims task via `XREADGROUP` | Atomic CAS status update in PostgreSQL; sets heartbeat key in Redis. |
-| `RUNNING` | `COMPLETED` | Worker completes processing, output validated | Uploads artifacts to S3; commits output records; clears heartbeat; fires SSE `job_completed`. |
-| `RUNNING` | `RETRY_SCHEDULED`| Worker encounters transient failure (S3 503, DB timeout) | Computes exponential backoff $T_{\text{wait}}$; pushes to Redis delay zset; increments `retry_count`. |
-| `RUNNING` | `FAILED` | Worker encounters non-retryable error (invalid codec) | Records stack trace and error code; cleans up scratch files; notifies user. |
-| `RUNNING` | `ORPHANED` | Worker dies abruptly (OOM, node termination) | Redis heartbeat TTL expires; supervisor marks job as orphaned. |
-| `ORPHANED` | `QUEUED` | Supervisor reconciles orphaned job | Resets lock; re-enqueues job with incremented retry count. |
-| `RUNNING` | `CANCELLING` | User requests cancellation via API | Sends cancellation signal to worker via Redis pub/sub channel. |
-| `CANCELLING` | `CANCELLED` | Worker aborts FFmpeg/inference subprocess | Deletes temporary local files and partial S3 objects; updates status to `CANCELLED`. |
+| From State | Permitted Next States | Trigger / Invariant |
+| :--- | :--- | :--- |
+| `QUEUED` | `PROCESSING`, `CANCELLED`, `FAILED` | Initial state. Can be immediately cancelled without invoking worker pipeline. |
+| `PROCESSING` | `SUCCEEDED`, `FAILED`, `CANCEL_REQUESTED`, `CANCELLED` | Active execution. Heartbeat renews worker lease. Cancellation requests transition to `CANCEL_REQUESTED`. |
+| `CANCEL_REQUESTED` | `CANCELLED`, `FAILED`, `SUCCEEDED` | Worker checks cancellation flag between stages; safely kills FFmpeg process groups and transitions to `CANCELLED`. |
+| `FAILED` | `QUEUED` | Only permitted via explicit retry or recovery daemon when `retry_count < max_retries`. |
+| `SUCCEEDED` | *(Terminal)* | Montage and edit manifest are durably stored. Progress is fixed at 100.0%. No further transitions. |
+| `CANCELLED` | *(Terminal)* | Scratch files deleted. No further transitions. |
 
 ---
 
-## 3. Worker Heartbeat & Crash Recovery Protocol
+## 3. Monotonic Progress Model
 
-### 3.1 Distributed Heartbeat Mechanism
-1. When a worker transitions a job to `RUNNING`, it acquires a lease in Redis:
-   ```
-   SET job:heartbeat:{job_id} {worker_pod_name} EX 30 NX
-   ```
-2. While processing, a lightweight background thread in the worker refreshes the lease every 10 seconds:
-   ```
-   EXPIRE job:heartbeat:{job_id} 30
-   ```
-3. The worker also maintains an internal watchdog timer for long-running child processes (e.g., FFmpeg).
+Job execution reports progress across 9 discrete, ordered pipeline stages:
 
-### 3.2 Reconciliation Supervisor (Orphan Reaper)
-A lightweight reconciliation loop runs inside the Studio API Service every 30 seconds:
-1. Query PostgreSQL for jobs in `RUNNING` state where `updated_at < NOW() - INTERVAL '60 SECONDS'`.
-2. For each stale job, check for existence of Redis key `job:heartbeat:{job_id}`:
-   - **Case A: Heartbeat key exists:** Worker is alive but busy (e.g., heavy CPU task). Supervisor touches `updated_at` to extend grace window.
-   - **Case B: Heartbeat key missing:** Worker pod has terminated unexpectedly (Kubernetes evicted pod or OOM killed process).
-3. If heartbeat is missing:
-   - If `retry_count < max_retries` (default 3):
-     - Transition state to `QUEUED`.
-     - Increment `retry_count`.
-     - Re-enqueue task into Redis Stream.
-     - Log alert: `Worker crashed for job {job_id}; recovered and re-queued.`
-   - If `retry_count >= max_retries`:
-     - Transition state to `DEAD_LETTER`.
-     - Log critical error: `Job {job_id} failed permanently after worker crashes.`
+| Stage Name | Calibrated Progress % | Stage Responsibilities |
+| :--- | :--- | :--- |
+| `VALIDATING_INPUT` | 5% | Verify source video existence, permissions, and minimum size bounds. |
+| `PROBING_MEDIA` | 10% | Probe container metadata, frame rate mode (CFR/VFR), resolution, and audio streams. |
+| `PREPROCESSING` | 25% | Transcode standardized 720p H.264 analysis proxy and extract 16kHz mono audio. |
+| `DETECTING_EVENTS` | 50% | Run Stage 3 visual feature extraction, activity scoring, combat burst detection, and trigger grouping. |
+| `RANKING_HIGHLIGHTS`| 65% | Apply category multipliers, climax intensity weights, and boundary penalties to rank candidates. |
+| `PLANNING_EDIT` | 75% | Execute Dynamic Programming Weighted Interval Scheduling under duration budget and calculate clip padding. |
+| `RENDERING` | 90% | Extract segments, normalize canvas dimensions, and concatenate finished MP4 montage via FFmpeg. |
+| `VALIDATING_OUTPUT` | 95% | Post-render container health checks, stream validation, and decode smoke test. |
+| `FINALIZING` | 100% | Store rendered montage and edit manifest in durable artifacts, then mark `SUCCEEDED`. |
+
+### Invariants:
+1. **Monotonicity:** Progress percentage never decreases within an attempt: $P_{t+1} \ge P_t$.
+2. **Bounds:** Progress is strictly bounded within $[0.0, 100.0]$.
+3. **Success Truthfulness:** A job cannot reach `SUCCEEDED` unless post-render validation confirms the output video is valid and non-empty.
 
 ---
 
-## 4. Idempotency & Concurrency Guards
+## 4. Transactional Outbox Pattern & Reliable Dispatch
 
-### 4.1 Idempotency Key Semantics
-Every job payload includes a deterministic `idempotency_key`:
-$$\text{idempotency\_key} = \text{hash}(\text{project\_id} + \text{asset\_id} + \text{stage\_name} + \text{pipeline\_version})$$
+To prevent jobs from becoming permanently stuck if the API commits a job row but crashes before publishing to the queue, BLAZZID implements the Transactional Outbox pattern:
 
-When a worker receives a task:
-1. Queries the target database table for an existing record with that `idempotency_key`.
-2. If a completed record exists and output artifacts are verified in Object Storage, the worker immediately acknowledges the message without re-processing.
-3. If processing is required, database updates use optimistic concurrency control (`WHERE status = 'QUEUED'`).
-
-### 4.2 Distributed Locking for Non-Reentrant Tasks
-Certain operations (such as compiling an EDL or triggering a final export render) must never execute concurrently for the same project.
-- Workers use Redis-based distributed locks (`Redlock` pattern):
-  ```
-  SET lock:project:{project_id}:render {worker_id} PX 60000 NX
-  ```
-- If the lock cannot be acquired, the job is rejected or delayed, preventing race conditions.
+```text
+Client
+  |
+  v
+Studio API
+  |
+  +---- PostgreSQL (Single Atomic Transaction)
+  |       |
+  |       +---- Insert JobRecord (QUEUED)
+  |       +---- Insert OutboxRecord (event: "job.queued")
+  |
+  v
+Outbox Dispatcher (Poller or Synchronous Fast-Path)
+  |
+  v
+Redis Streams Queue (`blazzid:jobs:stream`)
+  |
+  v
+Media Worker (`XREADGROUP`)
+  |
+  +---- Atomic Claim & Lease Lock
+  +---- Pipeline Execution (Stages 2 -> 3 -> 4)
+  +---- Mark SUCCEEDED & XACK Message
+```
 
 ---
 
-## 5. Job Cancellation & Cleanup Workflow
+## 5. Worker Leases & Abandoned Job Recovery
 
-When a user cancels an active job (or deletes the parent project):
-1. User invokes `POST /api/v1/jobs/{job_id}/cancel`.
-2. API validates ownership and atomically updates status to `CANCELLING`.
-3. API publishes a message to Redis channel `channel:job_cancellations`:
-   ```json
-   { "job_id": "f2a1b92c", "action": "ABORT" }
-   ```
-4. The worker executing that job receives the message on its cancellation subscriber:
-   - Sets an internal `is_cancelled = True` flag.
-   - Sends `SIGTERM` to any running child process (FFmpeg, OpenCV frame reader).
-   - If the child process does not exit within 3 seconds, sends `SIGKILL`.
-   - Deletes all local temporary files in `/tmp/scratch/{job_id}/`.
-   - Deletes any partially uploaded multipart S3 objects.
-   - Updates PostgreSQL status to `CANCELLED`.
+1. **Lease Acquisition:** A worker claims a job atomically via `repository.claim_job()`, setting `worker_lease_until = now() + lease_seconds` (default: 300s).
+2. **Heartbeat Renewal:** While the worker executes, an internal daemon thread extends `worker_lease_until` every 30 seconds.
+3. **Recovery:** If a worker terminates abruptly (OOM, node eviction), the `JobRecoveryService` scans for active jobs where `worker_lease_until < now()`. If `retry_count < max_retries`, the job is incremented and re-queued; otherwise, it is transitioned to `FAILED`.

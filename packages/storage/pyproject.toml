@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blazzid-storage"
+version = "0.1.0"
+description = "Storage abstraction and local filesystem backend for BLAZZID AI Studio"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

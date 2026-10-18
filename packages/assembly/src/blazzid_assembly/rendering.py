@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
+import signal
 import subprocess
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Optional
 
@@ -24,6 +28,49 @@ def _find_ffmpeg_executable() -> str:
     return exe
 
 
+def _run_cancellable_subprocess(
+    cmd: list[str],
+    timeout_seconds: float,
+    is_cancelled_fn: Optional[Callable[[], bool]] = None,
+) -> tuple[int, str, str]:
+    """Run subprocess in isolated process group with clean cancellation support."""
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    t0 = time.time()
+    try:
+        while True:
+            ret = proc.poll()
+            if ret is not None:
+                stdout, stderr = proc.communicate()
+                return ret, stdout, stderr
+
+            if is_cancelled_fn and is_cancelled_fn():
+                with contextlib.suppress(OSError):
+                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                try:
+                    proc.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    with contextlib.suppress(OSError):
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                raise AssemblyRenderError("FFmpeg execution cancelled by user request")
+
+            if time.time() - t0 > timeout_seconds:
+                with contextlib.suppress(OSError):
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                raise subprocess.TimeoutExpired(cmd, timeout_seconds)
+
+            time.sleep(0.05)
+    finally:
+        if proc.poll() is None:
+            with contextlib.suppress(OSError):
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+
+
 def render_montage(
     source_path: Path,
     edit_plan: EditPlan,
@@ -32,6 +79,7 @@ def render_montage(
     *,
     source_has_audio: bool = True,
     temp_dir: Optional[Path] = None,
+    is_cancelled_fn: Optional[Callable[[], bool]] = None,
 ) -> Path:
     """Extracts planned highlight clips and concatenates them into a finished MP4 montage.
 
@@ -127,18 +175,16 @@ def render_montage(
 
             cmd.append(str(clip_path))
 
-            proc = subprocess.run(
+            retcode, _stdout, stderr = _run_cancellable_subprocess(
                 cmd,
-                capture_output=True,
-                text=True,
-                timeout=config.timeout_seconds,
-                check=False,
+                timeout_seconds=config.timeout_seconds,
+                is_cancelled_fn=is_cancelled_fn,
             )
 
-            if proc.returncode != 0:
+            if retcode != 0:
                 raise AssemblyRenderError(
                     f"FFmpeg failed extracting clip {clip.clip_index} "
-                    f"[{clip.source_interval.start}s - {clip.source_interval.end}s]: {proc.stderr}"
+                    f"[{clip.source_interval.start}s - {clip.source_interval.end}s]: {stderr}"
                 )
 
             if not clip_path.is_file() or clip_path.stat().st_size == 0:
@@ -173,16 +219,14 @@ def render_montage(
             str(output_path),
         ]
 
-        concat_proc = subprocess.run(
+        concat_retcode, _concat_stdout, concat_stderr = _run_cancellable_subprocess(
             concat_cmd,
-            capture_output=True,
-            text=True,
-            timeout=config.timeout_seconds,
-            check=False,
+            timeout_seconds=config.timeout_seconds,
+            is_cancelled_fn=is_cancelled_fn,
         )
 
-        if concat_proc.returncode != 0:
-            raise AssemblyRenderError(f"FFmpeg concatenation failed: {concat_proc.stderr}")
+        if concat_retcode != 0:
+            raise AssemblyRenderError(f"FFmpeg concatenation failed: {concat_stderr}")
 
         if not output_path.is_file() or output_path.stat().st_size == 0:
             raise AssemblyRenderError(

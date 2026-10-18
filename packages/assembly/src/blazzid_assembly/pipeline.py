@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +47,7 @@ class HighlightAssemblyPipeline:
         *,
         source_duration_seconds: Optional[float] = None,
         source_has_audio: Optional[bool] = None,
+        is_cancelled_fn: Optional[Callable[[], bool]] = None,
     ) -> AssemblyResult:
         """Executes the complete highlight assembly pipeline.
 
@@ -177,6 +178,7 @@ class HighlightAssemblyPipeline:
                 config=self.config,
                 source_has_audio=bool(source_has_audio),
                 temp_dir=self.config.work_dir,
+                is_cancelled_fn=is_cancelled_fn,
             )
         except Exception as exc:
             stage_durations["rendering"] = round(time.perf_counter() - t_render, 4)

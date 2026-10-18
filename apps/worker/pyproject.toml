@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blazzid-worker"
+version = "0.1.0"
+description = "Background distributed media worker for BLAZZID AI Studio"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.6.0",
+    "blazzid-core",
+    "blazzid-algorithms",
+    "blazzid-media",
+    "blazzid-detection",
+    "blazzid-assembly",
+    "blazzid-storage",
+    "blazzid-jobs",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
